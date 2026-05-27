@@ -14,52 +14,97 @@ if sys.platform.startswith("win"):
 # =========================================
 # BACKEND API
 # =========================================
-API_URL = "http://127.0.0.1:8000/voice-chat"
+API_URL = "http://127.0.0.1:8000"
 
 
 # =========================================
 # PROCESS FUNCTION
 # =========================================
-def process_audio(audio, text_input, mode, target_lang):
+def process_audio(
+    audio,
+    text_input,
+    text_file,
+    mode,
+    target_lang
+):
 
-    # =========================
+    # =====================================
     # VALIDASI INPUT
-    # =========================
+    # =====================================
     if (
         (audio is None or audio == "")
         and
         (text_input is None or text_input.strip() == "")
+        and
+        (text_file is None)
     ):
+
         return (
             "Belum ada input.",
             "",
             "-",
             "-",
-            "Masukkan audio ATAU teks.",
+            "Masukkan audio, teks, atau file TXT.",
             None
         )
 
     try:
 
         # =====================================
-        # MODE TEXT INPUT
+        # PRIORITAS INPUT
         # =====================================
-        if text_input and text_input.strip() != "":
+
+        input_text = None
+
+        # =====================================
+        # TEXT MANUAL
+        # =====================================
+        if (
+            text_input
+            and
+            text_input.strip() != ""
+        ):
+
+            input_text = text_input.strip()
+
+        # =====================================
+        # TXT FILE
+        # =====================================
+        elif text_file is not None:
+
+            with open(
+                text_file,
+                "r",
+                encoding="utf-8"
+            ) as f:
+
+                input_text = f.read()
+
+        # =====================================
+        # MODE TEXT
+        # =====================================
+        if input_text:
 
             data = {
-                "text": text_input,
+
+                "text": input_text,
+
                 "mode": mode,
+
                 "target_lang": target_lang
             }
 
             response = requests.post(
-                f"{API_URL}/text",
+
+                f"{API_URL}/text-chat",
+
                 data=data,
+
                 timeout=180
             )
 
         # =====================================
-        # MODE AUDIO INPUT
+        # MODE AUDIO
         # =====================================
         else:
 
@@ -70,14 +115,20 @@ def process_audio(audio, text_input, mode, target_lang):
                 }
 
                 data = {
+
                     "mode": mode,
+
                     "target_lang": target_lang
                 }
 
                 response = requests.post(
-                    API_URL,
+
+                    f"{API_URL}/voice-chat",
+
                     files=files,
+
                     data=data,
+
                     timeout=180
                 )
 
@@ -87,11 +138,17 @@ def process_audio(audio, text_input, mode, target_lang):
         if response.status_code != 200:
 
             return (
+
                 "ERROR",
+
                 "ERROR",
+
                 "ERROR",
+
                 "ERROR",
+
                 f"Backend Error:\n{response.text}",
+
                 None
             )
 
@@ -134,11 +191,17 @@ def process_audio(audio, text_input, mode, target_lang):
     except Exception as e:
 
         return (
+
             "SYSTEM ERROR",
+
             "",
+
             "",
+
             "",
+
             str(e),
+
             None
         )
 
@@ -172,10 +235,6 @@ body,
     white !important;
 }
 
-/* =======================================
-FULL WIDTH
-======================================= */
-
 .gradio-container {
 
     max-width: 100% !important;
@@ -187,18 +246,6 @@ FULL WIDTH
 }
 
 /* =======================================
-REMOVE DEFAULT
-======================================= */
-
-.block,
-.gr-box,
-.gr-panel {
-
-    border: none !important;
-    box-shadow: none !important;
-}
-
-/* =======================================
 HERO
 ======================================= */
 
@@ -206,9 +253,9 @@ HERO
 
     text-align: center;
 
-    padding-top: 50px;
+    padding-top: 55px;
 
-    padding-bottom: 50px;
+    padding-bottom: 45px;
 }
 
 .hero-badge {
@@ -220,7 +267,7 @@ HERO
     border-radius: 999px;
 
     background:
-    rgba(59,130,246,0.10);
+    rgba(59,130,246,0.12);
 
     border:
     1px solid rgba(59,130,246,0.25);
@@ -239,13 +286,13 @@ HERO
 
 .hero-title {
 
-    font-size: 82px;
+    font-size: 78px;
 
     font-weight: 900;
 
     line-height: 1;
 
-    margin-bottom: 25px;
+    margin-bottom: 24px;
 
     background:
     linear-gradient(
@@ -261,16 +308,16 @@ HERO
 
 .hero-subtitle {
 
-    max-width: 980px;
+    max-width: 950px;
 
     margin: auto;
 
     color:
     #94a3b8;
 
-    font-size: 19px;
+    font-size: 18px;
 
-    line-height: 1.8;
+    line-height: 1.9;
 }
 
 /* =======================================
@@ -293,7 +340,7 @@ CHIPS
 .chip {
 
     background:
-    rgba(17,24,39,0.75);
+    rgba(17,24,39,0.72);
 
     border:
     1px solid rgba(255,255,255,0.06);
@@ -301,7 +348,7 @@ CHIPS
     padding:
     11px 18px;
 
-    border-radius: 14px;
+    border-radius: 16px;
 
     font-size: 13px;
 
@@ -311,16 +358,16 @@ CHIPS
 }
 
 /* =======================================
-MAIN LAYOUT
+MAIN
 ======================================= */
 
 .main-row {
 
     width: 100% !important;
 
-    align-items: stretch !important;
+    gap: 24px !important;
 
-    gap: 22px !important;
+    align-items: stretch !important;
 }
 
 /* =======================================
@@ -336,7 +383,7 @@ PANEL
     1px solid rgba(255,255,255,0.06) !important;
 
     border-radius:
-    28px !important;
+    30px !important;
 
     padding:
     28px !important;
@@ -344,15 +391,8 @@ PANEL
     backdrop-filter:
     blur(20px);
 
-    margin-bottom:
-    18px !important;
-
     height: 100%;
 }
-
-/* =======================================
-PANEL TITLE
-======================================= */
 
 .panel-label {
 
@@ -371,36 +411,7 @@ PANEL TITLE
 }
 
 /* =======================================
-AUDIO BOX
-======================================= */
-
-#audio-upload {
-
-    border:
-    2px dashed rgba(96,165,250,0.25) !important;
-
-    background:
-    rgba(15,23,42,0.95) !important;
-
-    border-radius:
-    20px !important;
-
-    padding: 10px !important;
-}
-
-/* =======================================
-TEXT INPUT BOX
-======================================= */
-
-#text-input textarea {
-
-    min-height: 140px !important;
-
-    resize: vertical !important;
-}
-
-/* =======================================
-INPUT
+INPUTS
 ======================================= */
 
 textarea,
@@ -437,10 +448,6 @@ select:focus {
     0 0 0 4px rgba(96,165,250,0.08) !important;
 }
 
-/* =======================================
-LABEL
-======================================= */
-
 label {
 
     color:
@@ -451,6 +458,31 @@ label {
 
     font-weight:
     600 !important;
+}
+
+/* =======================================
+AUDIO INPUT
+======================================= */
+
+#audio-upload {
+
+    border:
+    2px dashed rgba(96,165,250,0.25) !important;
+
+    background:
+    rgba(15,23,42,0.95) !important;
+
+    border-radius:
+    20px !important;
+}
+
+/* =======================================
+TEXT BOX
+======================================= */
+
+#text-input textarea {
+
+    min-height: 140px !important;
 }
 
 /* =======================================
@@ -486,28 +518,6 @@ BUTTON
 
     font-size:
     16px !important;
-
-    transition:
-    0.3s ease !important;
-}
-
-.btn-generate:hover {
-
-    transform:
-    translateY(-2px);
-
-    box-shadow:
-    0 12px 35px rgba(59,130,246,0.35) !important;
-}
-
-/* =======================================
-TEXTBOX OUTPUT
-======================================= */
-
-textarea[readonly] {
-
-    background:
-    rgba(2,6,23,0.95) !important;
 }
 
 /* =======================================
@@ -527,8 +537,6 @@ AUDIO PLAYER
 
     padding:
     14px !important;
-
-    overflow: visible !important;
 }
 
 /* =======================================
@@ -551,46 +559,13 @@ FOOTER
     20px;
 }
 
-/* =======================================
-RESPONSIVE
-======================================= */
-
-@media (max-width: 1200px) {
-
-    .hero-title {
-
-        font-size: 58px;
-    }
-}
-
-@media (max-width: 768px) {
-
-    .gradio-container {
-
-        padding-left: 16px !important;
-        padding-right: 16px !important;
-    }
-
-    .hero-title {
-
-        font-size: 42px;
-    }
-
-    .hero-subtitle {
-
-        font-size: 15px;
-    }
-}
-
 """
-
 
 # =========================================
 # UI
 # =========================================
 with gr.Blocks(
-    title="AI Pengalihan Kode Suara",
-    css=custom_css
+    title="AI Pengalihan Kode Suara"
 ) as demo:
 
     # =====================================
@@ -601,7 +576,7 @@ with gr.Blocks(
     <div class="hero-wrapper">
 
         <div class="hero-badge">
-            SISTEM NLP MULTIBAHASA WAKTU NYATA
+            REAL-TIME MULTILINGUAL NLP SYSTEM
         </div>
 
         <div class="hero-title">
@@ -618,12 +593,17 @@ with gr.Blocks(
 
         <div class="chip-container">
 
-            <div class="chip">🇮🇩</div>
-            <div class="chip">🇺🇸</div>
-            <div class="chip">🇸🇦</div>
-            <div class="chip">Real-Time</div>
-            <div class="chip">Speech-to-Speech</div>
-            <div class="chip">NLP Pipeline</div>
+            <div class="chip"> Indonesia 🇮🇩 </div>
+
+            <div class="chip"> English 🇺🇸 </div>
+
+            <div class="chip"> Arabic 🇸🇦 </div>
+
+            <div class="chip">⚡ Real-Time</div>
+
+            <div class="chip">🎤 Speech-to-Speech</div>
+
+            <div class="chip">🧠 NLP Pipeline</div>
 
         </div>
 
@@ -640,7 +620,7 @@ with gr.Blocks(
     ):
 
         # =================================
-        # LEFT PANEL
+        # LEFT
         # =================================
         with gr.Column(scale=4):
 
@@ -654,9 +634,6 @@ with gr.Blocks(
                 </div>
                 """)
 
-                # =========================
-                # AUDIO INPUT
-                # =========================
                 audio_input = gr.Audio(
 
                     label="Unggah Audio Suara",
@@ -671,16 +648,13 @@ with gr.Blocks(
                     elem_id="audio-upload"
                 )
 
-                # =========================
-                # OR TEXT
-                # =========================
                 text_input = gr.Textbox(
 
                     label="✍️ Atau Masukkan Teks",
 
                     placeholder="""
 Contoh:
-Halo, bisa bantu jelaskan cara apply visa Saudi?
+Halo, bagaimana cuaca hari ini?
                     """,
 
                     lines=5,
@@ -688,14 +662,22 @@ Halo, bisa bantu jelaskan cara apply visa Saudi?
                     elem_id="text-input"
                 )
 
+                text_file = gr.File(
+
+                    label="📄 Upload File TXT",
+
+                    file_types=[".txt"],
+
+                    type="filepath"
+                )
+
                 gr.Markdown("""
-> ⚠️ Gunakan salah satu input saja:
-> Upload audio **ATAU** masukkan teks.
+
+> ⚠️ Gunakan salah satu input:
+> Audio, teks, atau file TXT.
+
                 """)
 
-                # =========================
-                # TARGET LANGUAGE
-                # =========================
                 target_lang = gr.Dropdown(
 
                     label="🌐 Bahasa Tanggapan",
@@ -709,9 +691,6 @@ Halo, bisa bantu jelaskan cara apply visa Saudi?
                     value="Indonesia"
                 )
 
-                # =========================
-                # MODE
-                # =========================
                 mode = gr.Dropdown(
 
                     label="⚙️ Mode Respons AI",
@@ -725,9 +704,6 @@ Halo, bisa bantu jelaskan cara apply visa Saudi?
                     value="preserve"
                 )
 
-                # =========================
-                # BUTTON
-                # =========================
                 submit_btn = gr.Button(
 
                     "🚀 Hasilkan Respons AI",
@@ -736,7 +712,7 @@ Halo, bisa bantu jelaskan cara apply visa Saudi?
                 )
 
         # =================================
-        # RIGHT PANEL
+        # RIGHT
         # =================================
         with gr.Column(scale=6):
 
@@ -754,18 +730,14 @@ Halo, bisa bantu jelaskan cara apply visa Saudi?
 
                     label="📄 Transkrip",
 
-                    lines=4,
-
-                    placeholder="Hasil transkrip audio..."
+                    lines=4
                 )
 
                 normalized = gr.Textbox(
 
                     label="✨ Teks Dinormalisasi",
 
-                    lines=4,
-
-                    placeholder="Hasil normalisasi teks..."
+                    lines=4
                 )
 
                 with gr.Row():
@@ -782,14 +754,16 @@ Halo, bisa bantu jelaskan cara apply visa Saudi?
 
                     label="🤖 Respons AI",
 
-                    lines=7,
-
-                    placeholder="Respons AI akan muncul..."
+                    lines=7
                 )
 
                 audio_output = gr.Audio(
+
                     label="🔊 Output Suara AI",
-                    interactive=False
+
+                    interactive=False,
+
+                    type="filepath"
                 )
 
     # =====================================
@@ -802,6 +776,7 @@ Halo, bisa bantu jelaskan cara apply visa Saudi?
         inputs=[
             audio_input,
             text_input,
+            text_file,
             mode,
             target_lang
         ],
@@ -816,6 +791,22 @@ Halo, bisa bantu jelaskan cara apply visa Saudi?
         ]
     )
 
+    # =====================================
+    # FOOTER
+    # =====================================
+    gr.HTML("""
+
+    <div class="footer-text">
+
+        Built with FastAPI • Whisper • Gemma • XTTS v2 • Gradio
+
+        <br>
+
+        Multilingual NLP Final Project
+
+    </div>
+
+    """)
 
 # =========================================
 # RUN
@@ -826,11 +817,13 @@ if __name__ == "__main__":
 
     demo.launch(
 
-        server_name="127.0.0.1",
+        server_name="0.0.0.0",
 
         server_port=7861,
 
         inbrowser=True,
 
-        share=False
+        share=True,
+
+        css=custom_css
     )

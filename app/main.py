@@ -1,8 +1,17 @@
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import (
+    FastAPI,
+    UploadFile,
+    File,
+    Form
+)
+
 import shutil
 import os
 
-from app.config import TEMP_DIR, LOG_DIR
+from app.config import (
+    TEMP_DIR,
+    LOG_DIR
+)
 
 from app.utils import (
     generate_filename,
@@ -18,12 +27,23 @@ from app.processing import (
 )
 
 from app.llm import generate_response
+
 from app.tts import text_to_speech
+
+
+# =========================================
+# FASTAPI
+# =========================================
 
 app = FastAPI(
     title="Voice CS System",
-    version="1.0"
+    version="2.0"
 )
+
+
+# =========================================
+# ROOT
+# =========================================
 
 @app.get("/")
 def root():
@@ -33,10 +53,18 @@ def root():
     }
 
 
+# =========================================
+# AUDIO CHAT
+# =========================================
+
 @app.post("/voice-chat")
 async def voice_chat(
+
     audio: UploadFile = File(...),
-    mode: str = Form("preserve")
+
+    mode: str = Form("preserve"),
+
+    target_lang: str = Form("Indonesia")
 ):
 
     temp_name = generate_filename("wav")
@@ -47,7 +75,11 @@ async def voice_chat(
     )
 
     with open(temp_path, "wb") as buffer:
-        shutil.copyfileobj(audio.file, buffer)
+
+        shutil.copyfileobj(
+            audio.file,
+            buffer
+        )
 
     try:
 
@@ -68,16 +100,20 @@ async def voice_chat(
         )
 
         # =====================
-        # LLM
+        # AI RESPONSE
         # =====================
 
         response_text = generate_response(
+
             processed["normalized_text"],
-            mode
+
+            mode,
+
+            target_lang
         )
 
         # =====================
-        # CLEAN TEXT FOR TTS
+        # CLEAN FOR TTS
         # =====================
 
         clean_response = clean_for_tts(
@@ -101,6 +137,9 @@ async def voice_chat(
             "time":
                 timestamp(),
 
+            "input_type":
+                "audio",
+
             "transcript":
                 stt_result["text"],
 
@@ -117,7 +156,10 @@ async def voice_chat(
                 response_text,
 
             "mode":
-                mode
+                mode,
+
+            "target_lang":
+                target_lang
         }
 
         save_log(
@@ -129,7 +171,7 @@ async def voice_chat(
         )
 
         # =====================
-        # API RESPONSE
+        # RESPONSE
         # =====================
 
         return {
@@ -156,4 +198,179 @@ async def voice_chat(
     finally:
 
         if os.path.exists(temp_path):
+
             os.remove(temp_path)
+
+
+# =========================================
+# TEXT CHAT
+# =========================================
+
+@app.post("/text-chat")
+async def text_chat(
+
+    text: str = Form(None),
+
+    text_file: UploadFile = File(None),
+
+    mode: str = Form("preserve"),
+
+    target_lang: str = Form("Indonesia")
+):
+
+    try:
+
+        # =====================
+        # GET TEXT
+        # =====================
+
+        final_text = ""
+
+        # manual text
+        if text and text.strip() != "":
+
+            final_text = text.strip()
+
+        # uploaded file
+        elif text_file is not None:
+
+            content = await text_file.read()
+
+            final_text = content.decode(
+                "utf-8",
+                errors="ignore"
+            )
+
+        else:
+
+            return {
+                "transcript": "",
+                "normalized": "",
+                "language": "",
+                "tags": [],
+                "response":
+                    "Masukkan teks atau upload file.",
+                "audio_path": None
+            }
+
+        # =====================
+        # PROCESSING
+        # =====================
+
+        processed = process_text(
+            final_text
+        )
+
+        # =====================
+        # AI RESPONSE
+        # =====================
+
+        response_text = generate_response(
+
+            processed["normalized_text"],
+
+            mode,
+
+            target_lang
+        )
+
+        # =====================
+        # CLEAN FOR TTS
+        # =====================
+
+        clean_response = clean_for_tts(
+            response_text
+        )
+
+        # =====================
+        # TTS
+        # =====================
+
+        output_audio = await text_to_speech(
+            clean_response
+        )
+
+        # =====================
+        # LOG
+        # =====================
+
+        log_data = {
+
+            "time":
+                timestamp(),
+
+            "input_type":
+                "text",
+
+            "transcript":
+                final_text,
+
+            "normalized":
+                processed["normalized_text"],
+
+            "language":
+                processed["language"],
+
+            "tags":
+                processed["tags"],
+
+            "response":
+                response_text,
+
+            "mode":
+                mode,
+
+            "target_lang":
+                target_lang
+        }
+
+        save_log(
+            log_data,
+            os.path.join(
+                LOG_DIR,
+                "processing_logs.jsonl"
+            )
+        )
+
+        # =====================
+        # RESPONSE
+        # =====================
+
+        return {
+
+            "transcript":
+                final_text,
+
+            "normalized":
+                processed["normalized_text"],
+
+            "language":
+                processed["language"],
+
+            "tags":
+                processed["tags"],
+
+            "response":
+                response_text,
+
+            "audio_path":
+                output_audio
+        }
+
+    except Exception as e:
+
+        return {
+
+            "transcript": "",
+
+            "normalized": "",
+
+            "language": "",
+
+            "tags": [],
+
+            "response":
+                f"ERROR: {str(e)}",
+
+            "audio_path": None
+        }
