@@ -6,6 +6,7 @@
 *.gguf
 
 # Virtual Env
+.env
 env/
 venv/
 
