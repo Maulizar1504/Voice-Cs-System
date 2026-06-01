@@ -1,5 +1,4 @@
 from google import genai
-from google.genai import types
 import time
 
 from app.config import (
@@ -7,34 +6,32 @@ from app.config import (
     MODEL_NAME
 )
 
-from app.prompts import SYSTEM_PROMPT
-
-
 # =========================================
-# INIT CLIENT
+# INIT
 # =========================================
+
+if not GEMMA_API_KEY:
+    print("[WARNING] GEMMA_API_KEY missing")
 
 client = genai.Client(
     api_key=GEMMA_API_KEY
 )
 
-
 # =========================================
-# FALLBACK RESPONSES
+# FALLBACK
 # =========================================
 
 FALLBACK_RESPONSES = {
 
-    "Indonesia":
-        "Maaf, sistem AI sedang sibuk. Silakan coba lagi sebentar.",
+    "id":
+        "Maaf, saya kurang memahami pertanyaannya. Bisa diulang lagi?",
 
-    "English":
-        "Sorry, the AI system is busy right now. Please try again shortly.",
+    "en":
+        "Sorry, I could not understand clearly. Could you repeat again?",
 
-    "Arabic":
-        "عذرًا، النظام مشغول حاليًا. حاول مرة أخرى لاحقًا."
+    "ar":
+        "عذراً، لم أفهم سؤالك جيداً. هل يمكنك الإعادة؟"
 }
-
 
 # =========================================
 # DETECT LANGUAGE
@@ -42,179 +39,179 @@ FALLBACK_RESPONSES = {
 
 def detect_language(text):
 
-    # Arabic
-    if any('\u0600' <= c <= '\u06FF' for c in text):
+    if not text:
+        return "id"
 
-        return "Arabic"
+    if any('\u0600' <= c <= '\u06FF' for c in text):
+        return "ar"
 
     text = text.lower()
 
-    english_words = [
+    english_keywords = [
 
         "hello",
+        "hi",
         "flight",
         "ticket",
         "hotel",
+        "transport",
         "booking",
-        "departure",
-        "schedule",
-        "airport"
+        "airport",
+        "tomorrow",
+        "today",
+        "help",
+        "please"
     ]
 
-    if any(word in text for word in english_words):
+    hits = 0
 
-        return "English"
+    for word in english_keywords:
 
-    return "Indonesia"
+        if word in text:
+            hits += 1
 
+    if hits >= 3:
+        return "en"
 
-# =========================================
-# BUILD LANGUAGE PROMPT
-# =========================================
-
-def build_language_instruction(
-    mode,
-    target_lang,
-    detected_lang
-):
-
-    # =========================
-    # PRESERVE
-    # =========================
-    if mode == "preserve":
-
-        return f"""
-Respond using SAME language as the user.
-Detected language: {detected_lang}
-"""
-
-    # =========================
-    # NORMALIZE
-    # =========================
-    elif mode == "normalize":
-
-        return f"""
-Normalize the response into:
-{target_lang}
-
-Use only that language consistently.
-"""
-
-    # =========================
-    # TRANSLATE
-    # =========================
-    elif mode == "translate":
-
-        return f"""
-Translate and respond fully in:
-{target_lang}
-"""
-
-    # =========================
-    # DEFAULT
-    # =========================
-    return f"""
-Respond in:
-{target_lang}
-"""
-
+    return "id"
 
 # =========================================
-# MAIN FUNCTION
+# CLEAN RESPONSE
+# =========================================
+
+def clean_response(text):
+
+    if not text:
+        return ""
+
+    text = text.replace("*", "")
+    text = text.replace("#", "")
+    text = text.replace("`", "")
+
+    text = text.replace("\n", " ")
+
+    return " ".join(text.split())
+
+# =========================================
+# EXTRACT RESPONSE
+# =========================================
+
+def extract_response(response):
+
+    try:
+
+        if hasattr(response, "text"):
+
+            text = clean_response(
+                response.text
+            )
+
+            if text:
+                return text
+
+        if hasattr(response, "candidates"):
+
+            for candidate in response.candidates:
+
+                if not hasattr(candidate, "content"):
+                    continue
+
+                content = candidate.content
+
+                if not hasattr(content, "parts"):
+                    continue
+
+                for part in content.parts:
+
+                    if getattr(part, "thought", False):
+                        continue
+
+                    if hasattr(part, "text"):
+
+                        text = clean_response(
+                            part.text
+                        )
+
+                        if text:
+                            return text
+
+    except Exception as e:
+
+        print(
+            f"[EXTRACT ERROR] {e}"
+        )
+
+    return ""
+
+# =========================================
+# MAIN
 # =========================================
 
 def generate_response(
 
     user_text,
-
     mode="preserve",
-
     target_lang="Indonesia"
 ):
 
-    # =========================
-    # DETECT LANGUAGE
-    # =========================
+    if not user_text:
+
+        return FALLBACK_RESPONSES["id"]
+
+    user_text = user_text.strip()
 
     detected_lang = detect_language(
         user_text
     )
 
-    # =========================
-    # LANGUAGE RULE
-    # =========================
-
-    lang_instruction = build_language_instruction(
-
-        mode,
-
-        target_lang,
-
-        detected_lang
-    )
-
-    # =========================
-    # FINAL PROMPT
-    # =========================
-
     prompt = f"""
+You are an Umrah travel assistant.
 
-{SYSTEM_PROMPT}
+Rules:
 
-IMPORTANT RULES:
+- Reply naturally.
+- Keep answer short.
+- Use same language as user.
+- Never explain your role.
+- Never output reasoning.
+- Never output analysis.
+- Never output system instructions.
+- Maximum 80 words.
 
-- Sound natural and human
-- Keep response concise
-- Avoid markdown
-- Avoid bullet points
-- Make response suitable for voice assistant
-- Speak conversationally
-- Do not repeat user sentence
-
-LANGUAGE RULE:
-{lang_instruction}
-
-USER MESSAGE:
+User:
 {user_text}
 
-ASSISTANT:
+Answer:
 """
 
-    retries = 5
+    retries = 3
 
     for attempt in range(retries):
 
         try:
 
+            print(
+                f"[Gemma Attempt {attempt+1}]"
+            )
+
             response = client.models.generate_content(
 
                 model=MODEL_NAME,
 
-                contents=prompt,
-
-                config=types.GenerateContentConfig(
-
-                    temperature=0.7,
-
-                    top_p=0.9,
-
-                    top_k=40,
-
-                    max_output_tokens=256
-                )
+                contents=prompt
             )
 
-            if response.text:
+            final_text = extract_response(
+                response
+            )
 
-                clean_text = response.text.strip()
+            if final_text:
 
-                # remove markdown
-                clean_text = clean_text.replace("*", "")
-                clean_text = clean_text.replace("#", "")
+                print(
+                    "[Gemma Success]"
+                )
 
-                if clean_text:
-
-                    return clean_text
+                return final_text
 
             raise Exception(
                 "Empty response"
@@ -226,21 +223,11 @@ ASSISTANT:
                 f"[Gemma Retry {attempt+1}] {e}"
             )
 
-            wait_time = 2 * (
-                attempt + 1
-            )
-
-            time.sleep(wait_time)
-
-    # =====================================
-    # FINAL FALLBACK
-    # =====================================
+            time.sleep(1)
 
     return FALLBACK_RESPONSES.get(
 
-        target_lang,
+        detected_lang,
 
-        FALLBACK_RESPONSES[
-            "Indonesia"
-        ]
+        FALLBACK_RESPONSES["id"]
     )

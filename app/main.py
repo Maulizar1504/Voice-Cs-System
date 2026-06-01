@@ -87,22 +87,27 @@ async def voice_chat(
         # STT
         # =====================
 
+        print("[VOICE_CHAT] Starting STT...")
         stt_result = transcribe_audio(
             temp_path
         )
+        print(f"[VOICE_CHAT] STT Result: {stt_result}")
 
         # =====================
         # PROCESSING
         # =====================
 
+        print("[VOICE_CHAT] Processing text...")
         processed = process_text(
             stt_result["text"]
         )
+        print(f"[VOICE_CHAT] Processed: {processed}")
 
         # =====================
         # AI RESPONSE
         # =====================
 
+        print(f"[VOICE_CHAT] Generating response for: {processed['normalized_text']}")
         response_text = generate_response(
 
             processed["normalized_text"],
@@ -111,22 +116,27 @@ async def voice_chat(
 
             target_lang
         )
+        print(f"[VOICE_CHAT] AI Response: {response_text}")
 
         # =====================
         # CLEAN FOR TTS
         # =====================
 
+        print("[VOICE_CHAT] Cleaning for TTS...")
         clean_response = clean_for_tts(
             response_text
         )
+        print(f"[VOICE_CHAT] Cleaned Response: {clean_response}")
 
         # =====================
         # TTS
         # =====================
 
+        print("[VOICE_CHAT] Generating TTS...")
         output_audio = await text_to_speech(
             clean_response
         )
+        print(f"[VOICE_CHAT] TTS Output: {output_audio}")
 
         # =====================
         # LOGGING
@@ -174,6 +184,7 @@ async def voice_chat(
         # RESPONSE
         # =====================
 
+        print("[VOICE_CHAT] Returning response")
         return {
 
             "transcript":

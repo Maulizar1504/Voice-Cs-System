@@ -14,7 +14,7 @@ if sys.platform.startswith("win"):
 # =========================================
 # BACKEND API
 # =========================================
-API_URL = "http://127.0.0.1:8000"
+API_URL = "http://127.0.0.1:8080"
 
 
 # =========================================
@@ -53,23 +53,13 @@ def process_audio(
         # =====================================
         # PRIORITAS INPUT
         # =====================================
-
         input_text = None
 
-        # =====================================
         # TEXT MANUAL
-        # =====================================
-        if (
-            text_input
-            and
-            text_input.strip() != ""
-        ):
-
+        if text_input and text_input.strip() != "":
             input_text = text_input.strip()
 
-        # =====================================
         # TXT FILE
-        # =====================================
         elif text_file is not None:
 
             with open(
@@ -86,21 +76,15 @@ def process_audio(
         if input_text:
 
             data = {
-
                 "text": input_text,
-
                 "mode": mode,
-
                 "target_lang": target_lang
             }
 
             response = requests.post(
-
                 f"{API_URL}/text-chat",
-
                 data=data,
-
-                timeout=180
+                timeout=500
             )
 
         # =====================================
@@ -115,21 +99,15 @@ def process_audio(
                 }
 
                 data = {
-
                     "mode": mode,
-
                     "target_lang": target_lang
                 }
 
                 response = requests.post(
-
                     f"{API_URL}/voice-chat",
-
                     files=files,
-
                     data=data,
-
-                    timeout=180
+                    timeout=500
                 )
 
         # =====================================
@@ -138,17 +116,11 @@ def process_audio(
         if response.status_code != 200:
 
             return (
-
                 "ERROR",
-
                 "ERROR",
-
                 "ERROR",
-
                 "ERROR",
-
                 f"Backend Error:\n{response.text}",
-
                 None
             )
 
@@ -159,52 +131,24 @@ def process_audio(
         )
 
         return (
-
-            result.get(
-                "transcript",
-                ""
-            ),
-
-            result.get(
-                "normalized",
-                ""
-            ),
-
-            result.get(
-                "language",
-                ""
-            ),
-
+            result.get("transcript", ""),
+            result.get("normalized", ""),
+            result.get("language", ""),
             tags,
-
-            result.get(
-                "response",
-                ""
-            ),
-
-            result.get(
-                "audio_path",
-                None
-            )
+            result.get("response", ""),
+            result.get("audio_path", None)
         )
 
     except Exception as e:
 
         return (
-
             "SYSTEM ERROR",
-
             "",
-
             "",
-
             "",
-
             str(e),
-
             None
         )
-
 
 # =========================================
 # PREMIUM CSS
@@ -576,7 +520,7 @@ with gr.Blocks(
     <div class="hero-wrapper">
 
         <div class="hero-badge">
-            REAL-TIME MULTILINGUAL NLP SYSTEM
+            Pemrosesan Bahasa Alami - Respons Suara Multibahasa
         </div>
 
         <div class="hero-title">
@@ -592,12 +536,6 @@ with gr.Blocks(
         </div>
 
         <div class="chip-container">
-
-            <div class="chip"> Indonesia 🇮🇩 </div>
-
-            <div class="chip"> English 🇺🇸 </div>
-
-            <div class="chip"> Arabic 🇸🇦 </div>
 
             <div class="chip">⚡ Real-Time</div>
 
@@ -650,7 +588,7 @@ with gr.Blocks(
 
                 text_input = gr.Textbox(
 
-                    label="✍️ Atau Masukkan Teks",
+                    label="✍️ Masukkan Teks",
 
                     placeholder="""
 Contoh:
@@ -800,10 +738,6 @@ Halo, bagaimana cuaca hari ini?
 
         Built with FastAPI • Whisper • Gemma • XTTS v2 • Gradio
 
-        <br>
-
-        Multilingual NLP Final Project
-
     </div>
 
     """)
@@ -819,7 +753,7 @@ if __name__ == "__main__":
 
         server_name="0.0.0.0",
 
-        server_port=7861,
+        server_port=7863,
 
         inbrowser=True,
 
