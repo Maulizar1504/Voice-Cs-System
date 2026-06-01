@@ -1,8 +1,22 @@
+# Model AI
+*.pth
+*.pt
+*.ckpt
+*.bin
+*.gguf
+
+# Virtual Env
 env/
-__pycache__/
-*.pyc
-*.wav
-*.mp3
-.env
+venv/
+
+# Output
 output/
 log/
+
+# Audio
+*.wav
+*.mp3
+
+# Python
+__pycache__/
+*.pyc
