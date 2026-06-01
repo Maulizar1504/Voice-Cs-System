@@ -69,20 +69,14 @@ TTS_ENGINE=xtts
 # Optional API Keys (jika pakai cloud LLM)
 OPENAI_API_KEY=your_key_here
 🚀 Cara Menjalankan Backend (FastAPI)
-
-Masuk ke folder backend:
-cd backend
-
 Jalankan server:
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8080
-
 📌 Backend akan berjalan di:
 http://localhost:8080
 
 🎛️ Cara Menjalankan Frontend (Gradio)
 Buka terminal baru:
-cd frontend
-python app.py
+python gradio_app/app.py
 
 Jika sukses, akan muncul:
 Running on local URL:  http://127.0.0.1:7863

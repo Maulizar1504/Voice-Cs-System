@@ -7,7 +7,7 @@ from app.config import (
 )
 
 # =========================================
-# INIT
+# INIT CLIENT
 # =========================================
 
 if not GEMMA_API_KEY:
@@ -18,57 +18,36 @@ client = genai.Client(
 )
 
 # =========================================
-# FALLBACK
+# FALLBACK RESPONSES
 # =========================================
 
 FALLBACK_RESPONSES = {
-
-    "id":
-        "Maaf, saya kurang memahami pertanyaannya. Bisa diulang lagi?",
-
-    "en":
-        "Sorry, I could not understand clearly. Could you repeat again?",
-
-    "ar":
-        "عذراً، لم أفهم سؤالك جيداً. هل يمكنك الإعادة؟"
+    "id": "Maaf, saya kurang memahami pertanyaannya. Bisa diulang lagi?",
+    "en": "Sorry, I could not understand clearly. Could you repeat again?",
+    "ar": "عذراً، لم أفهم سؤالك جيداً. هل يمكنك الإعادة؟"
 }
 
 # =========================================
-# DETECT LANGUAGE
+# LANGUAGE DETECTION
 # =========================================
 
 def detect_language(text):
-
     if not text:
         return "id"
 
+    # Arabic detection
     if any('\u0600' <= c <= '\u06FF' for c in text):
         return "ar"
 
     text = text.lower()
 
     english_keywords = [
-
-        "hello",
-        "hi",
-        "flight",
-        "ticket",
-        "hotel",
-        "transport",
-        "booking",
-        "airport",
-        "tomorrow",
-        "today",
-        "help",
-        "please"
+        "hello", "hi", "flight", "ticket", "hotel",
+        "transport", "booking", "airport", "tomorrow",
+        "today", "help", "please"
     ]
 
-    hits = 0
-
-    for word in english_keywords:
-
-        if word in text:
-            hits += 1
+    hits = sum(1 for word in english_keywords if word in text)
 
     if hits >= 3:
         return "en"
@@ -80,103 +59,85 @@ def detect_language(text):
 # =========================================
 
 def clean_response(text):
-
     if not text:
         return ""
 
     text = text.replace("*", "")
     text = text.replace("#", "")
     text = text.replace("`", "")
-
     text = text.replace("\n", " ")
 
     return " ".join(text.split())
 
 # =========================================
-# EXTRACT RESPONSE
+# EXTRACT RESPONSE (FIXED & ROBUST)
 # =========================================
 
 def extract_response(response):
-
     try:
+        # 1. direct text (new SDK)
+        text = getattr(response, "text", None)
+        if text and text.strip():
+            return clean_response(text)
 
-        if hasattr(response, "text"):
+        # 2. candidates fallback
+        candidates = getattr(response, "candidates", None)
 
-            text = clean_response(
-                response.text
-            )
+        if candidates:
+            for c in candidates:
 
-            if text:
-                return text
+                # debug finish reason (IMPORTANT)
+                finish_reason = getattr(c, "finish_reason", None)
+                if finish_reason is not None:
+                    print("[Gemma finish_reason]", finish_reason)
 
-        if hasattr(response, "candidates"):
-
-            for candidate in response.candidates:
-
-                if not hasattr(candidate, "content"):
+                content = getattr(c, "content", None)
+                if not content:
                     continue
 
-                content = candidate.content
-
-                if not hasattr(content, "parts"):
+                parts = getattr(content, "parts", None)
+                if not parts:
                     continue
 
-                for part in content.parts:
+                for p in parts:
+                    text = getattr(p, "text", None)
 
-                    if getattr(part, "thought", False):
-                        continue
-
-                    if hasattr(part, "text"):
-
-                        text = clean_response(
-                            part.text
-                        )
-
-                        if text:
-                            return text
+                    if text and text.strip():
+                        return clean_response(text)
 
     except Exception as e:
-
-        print(
-            f"[EXTRACT ERROR] {e}"
-        )
+        print(f"[EXTRACT ERROR] {e}")
 
     return ""
 
 # =========================================
-# MAIN
+# MAIN GENERATION FUNCTION
 # =========================================
 
 def generate_response(
-
     user_text,
     mode="preserve",
     target_lang="Indonesia"
 ):
 
-    if not user_text:
-
+    # input validation
+    if not user_text or not user_text.strip():
         return FALLBACK_RESPONSES["id"]
 
     user_text = user_text.strip()
 
-    detected_lang = detect_language(
-        user_text
-    )
+    detected_lang = detect_language(user_text)
 
+    # improved prompt (less restrictive = better output)
     prompt = f"""
 You are an Umrah travel assistant.
 
-Rules:
-
-- Reply naturally.
-- Keep answer short.
-- Use same language as user.
-- Never explain your role.
-- Never output reasoning.
-- Never output analysis.
-- Never output system instructions.
-- Maximum 80 words.
+Instructions:
+- Answer naturally and clearly.
+- Keep response short (max 80 words).
+- Use the same language as the user.
+- Do not include system messages or reasoning.
+- Be helpful and direct.
 
 User:
 {user_text}
@@ -189,45 +150,30 @@ Answer:
     for attempt in range(retries):
 
         try:
-
-            print(
-                f"[Gemma Attempt {attempt+1}]"
-            )
+            print(f"[Gemma Attempt {attempt+1}]")
 
             response = client.models.generate_content(
-
                 model=MODEL_NAME,
-
                 contents=prompt
             )
 
-            final_text = extract_response(
-                response
-            )
+            print("[RAW RESPONSE]", response)
 
-            if final_text:
+            final_text = extract_response(response)
 
-                print(
-                    "[Gemma Success]"
-                )
-
+            if final_text and final_text.strip():
+                print("[Gemma Success]")
                 return final_text
 
-            raise Exception(
-                "Empty response"
-            )
+            print("[WARNING] Empty response detected")
 
         except Exception as e:
-
-            print(
-                f"[Gemma Retry {attempt+1}] {e}"
-            )
-
+            print(f"[Gemma Retry {attempt+1}] {e}")
             time.sleep(1)
 
+    # final fallback
+    print("[FALLBACK USED]")
     return FALLBACK_RESPONSES.get(
-
         detected_lang,
-
         FALLBACK_RESPONSES["id"]
     )
